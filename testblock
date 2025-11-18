@@ -1,7 +1,9 @@
--- LocalScript in StarterPlayer > StarterPlayerScripts
+-- EXECUTOR-ONLY SCRIPT - Will NOT work in published games or normal LocalScripts
+-- For testing purposes only in private servers with an executor
 
 local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
+local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -21,7 +23,6 @@ mainFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = screenGui
 
--- Add corner rounding
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 10)
 corner.Parent = mainFrame
@@ -32,7 +33,7 @@ titleLabel.Name = "TitleLabel"
 titleLabel.Size = UDim2.new(1, 0, 0, 40)
 titleLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 titleLabel.BorderSizePixel = 0
-titleLabel.Text = "Players in Server"
+titleLabel.Text = "Auto-Block Players (Executor)"
 titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.TextSize = 18
 titleLabel.Font = Enum.Font.GothamBold
@@ -51,7 +52,7 @@ closeButton.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
 closeButton.BorderSizePixel = 0
 closeButton.Text = "X"
 closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeButton.TextSize = 16
+titleLabel.TextSize = 16
 closeButton.Font = Enum.Font.GothamBold
 closeButton.Parent = mainFrame
 
@@ -78,6 +79,45 @@ local listLayout = Instance.new("UIListLayout")
 listLayout.SortOrder = Enum.SortOrder.Name
 listLayout.Padding = UDim.new(0, 5)
 listLayout.Parent = scrollFrame
+
+-- Function to automatically click the block button
+local function autoClickBlock()
+	task.wait(0.5) -- Wait for CoreGui menu to load
+	
+	-- Try multiple methods to find and click the block button
+	local success = false
+	
+	-- Method 1: Search CoreGui for block button
+	for _, gui in pairs(CoreGui:GetDescendants()) do
+		if gui:IsA("TextButton") then
+			local text = gui.Text:lower()
+			if text:find("block") and not text:find("unblock") then
+				-- Try firesignal
+				pcall(function()
+					firesignal(gui.MouseButton1Click)
+					success = true
+				end)
+				
+				-- Alternative: Try to trigger the activated event
+				if not success then
+					pcall(function()
+						gui.Activated:Fire()
+						success = true
+					end)
+				end
+				
+				if success then
+					print("Successfully auto-blocked player!")
+					break
+				end
+			end
+		end
+	end
+	
+	if not success then
+		warn("Could not find or click block button - executor may not support this")
+	end
+end
 
 -- Function to create player button
 local function createPlayerButton(targetPlayer)
@@ -110,10 +150,16 @@ local function createPlayerButton(targetPlayer)
 		button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
 	end)
 	
-	-- Click to open block UI
+	-- Click to auto-block
 	button.MouseButton1Click:Connect(function()
 		if targetPlayer and targetPlayer:IsA("Player") then
+			print("Attempting to auto-block:", targetPlayer.Name)
+			
+			-- Open the block UI
 			StarterGui:SetCore("PromptBlockPlayer", targetPlayer)
+			
+			-- Attempt to auto-click the block button
+			spawn(autoClickBlock)
 		end
 	end)
 	
@@ -123,19 +169,18 @@ end
 
 -- Function to update player list
 local function updatePlayerList()
-	-- Clear existing buttons
 	for _, child in pairs(scrollFrame:GetChildren()) do
 		if child:IsA("TextButton") then
 			child:Destroy()
 		end
 	end
 	
-	-- Add all players
 	for _, plr in pairs(Players:GetPlayers()) do
-		createPlayerButton(plr)
+		if plr ~= player then -- Don't show yourself
+			createPlayerButton(plr)
+		end
 	end
 	
-	-- Update canvas size
 	scrollFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
 end
 
@@ -156,10 +201,12 @@ closeButton.MouseButton1Click:Connect(function()
 	mainFrame.Visible = not mainFrame.Visible
 end)
 
--- Optional: Toggle with a keybind (P key)
+-- Toggle with P key
 local UserInputService = game:GetService("UserInputService")
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if not gameProcessed and input.KeyCode == Enum.KeyCode.P then
 		mainFrame.Visible = not mainFrame.Visible
 	end
 end)
+
+print("Auto-Block GUI loaded! Press P to toggle. NOTE: Requires executor with firesignal support!")
