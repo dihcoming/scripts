@@ -1,4 +1,4 @@
--- Efffffffffffffff - Will NOT work in published games or normal LocalScripts
+-- ffffffffffffffffffffffT - Will NOT work in published games or normal LocalScripts
 -- For testing purposes only in private servers with an executor
 
 local Players = game:GetService("Players")
@@ -82,56 +82,82 @@ listLayout.Parent = scrollFrame
 
 -- Function to automatically click the block button using the correct path
 local function autoClickBlock()
-	task.wait(0.5) -- Wait for CoreGui menu to load
-	
 	local success = false
+	local maxWaitTime = 5 -- Maximum time to wait in seconds
+	local startTime = tick()
 	
-	-- Use the exact path you provided
-	local blockButton = CoreGui:FindFirstChild("BlockingModalScreen")
-	if blockButton then
-		blockButton = blockButton:FindFirstChild("BlockingModalContainer")
-		if blockButton then
-			blockButton = blockButton:FindFirstChild("BlockingModalContainerWrapper")
-			if blockButton then
-				blockButton = blockButton:FindFirstChild("BlockingModal")
-				if blockButton then
-					blockButton = blockButton:FindFirstChild("AlertModal")
-					if blockButton then
-						blockButton = blockButton:FindFirstChild("AlertContents")
-						if blockButton then
-							blockButton = blockButton:FindFirstChild("Footer")
-							if blockButton then
-								blockButton = blockButton:FindFirstChild("Buttons")
-								if blockButton then
-									blockButton = blockButton:FindFirstChild("3")
-									if blockButton and blockButton:IsA("GuiButton") then
-										-- Try multiple methods to click
-										pcall(function()
-											firesignal(blockButton.MouseButton1Click)
-											success = true
-											print("Successfully auto-blocked player using firesignal!")
-										end)
-										
-										if not success then
-											pcall(function()
-												blockButton.Activated:Fire()
-												success = true
-												print("Successfully auto-blocked player using Activated!")
-											end)
-										end
-									end
-								end
-							end
-						end
-					end
-				end
-			end
+	print("Waiting for BlockingModalScreen to appear...")
+	
+	-- Wait for BlockingModalScreen to appear in CoreGui
+	local blockingModalScreen
+	repeat
+		blockingModalScreen = CoreGui:FindFirstChild("BlockingModalScreen")
+		if not blockingModalScreen then
+			task.wait(0.1) -- Check every 0.1 seconds
 		end
+	until blockingModalScreen or (tick() - startTime) > maxWaitTime
+	
+	if not blockingModalScreen then
+		warn("BlockingModalScreen did not appear within", maxWaitTime, "seconds")
+		return
+	end
+	
+	print("BlockingModalScreen found! Navigating to block button...")
+	
+	-- Wait a tiny bit more for the UI to fully load
+	task.wait(0.2)
+	
+	-- Navigate through the exact path you provided
+	local blockButton = blockingModalScreen:FindFirstChild("BlockingModalContainer")
+	if blockButton then
+		blockButton = blockButton:FindFirstChild("BlockingModalContainerWrapper")
+		if blockButton then
+			blockButton = blockButton:FindFirstChild("BlockingModal")
+			if blockButton then
+				blockButton = blockButton:FindFirstChild("AlertModal")
+				if blockButton then
+					blockButton = blockButton:FindFirstChild("AlertContents")
+					if blockButton then
+						blockButton = blockButton:FindFirstChild("Footer")
+						if blockButton then
+							blockButton = blockButton:FindFirstChild("Buttons")
+							if blockButton then
+								blockButton = blockButton:FindFirstChild("3")
+								if blockButton then
+									print("Block button found! Attempting to click...")
+									-- Use firesignal
+									pcall(function()
+										firesignal(blockButton.MouseButton1Click)
+										success = true
+										print("Successfully auto-blocked player using firesignal!")
+									end)
+								else
+									warn("Could not find button '3' in Buttons")
+								end
+							else
+								warn("Could not find 'Buttons' in Footer")
+							end
+						else
+							warn("Could not find 'Footer' in AlertContents")
+						end
+					else
+						warn("Could not find 'AlertContents' in AlertModal")
+					end
+				else
+					warn("Could not find 'AlertModal' in BlockingModal")
+				end
+			else
+				warn("Could not find 'BlockingModal' in BlockingModalContainerWrapper")
+			end
+		else
+			warn("Could not find 'BlockingModalContainerWrapper' in BlockingModalContainer")
+		end
+	else
+		warn("Could not find 'BlockingModalContainer' in BlockingModalScreen")
 	end
 	
 	if not success then
-		warn("Could not find or click block button at specified path")
-		warn("Path: CoreGui.BlockingModalScreen.BlockingModalContainer.BlockingModalContainerWrapper.BlockingModal.AlertModal.AlertContents.Footer.Buttons.3")
+		warn("Failed to click block button")
 	end
 end
 
@@ -217,13 +243,50 @@ closeButton.MouseButton1Click:Connect(function()
 	mainFrame.Visible = not mainFrame.Visible
 end)
 
--- Toggle with P key
+-- Make GUI draggable
+local dragging
+local dragInput
+local dragStart
+local startPos
+
+local function update(input)
+	local delta = input.Position - dragStart
+	mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+mainFrame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = mainFrame.Position
+		
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+mainFrame.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+
 local UserInputService = game:GetService("UserInputService")
+UserInputService.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		update(input)
+	end
+end)
+
+-- Toggle with P key
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if not gameProcessed and input.KeyCode == Enum.KeyCode.P then
 		mainFrame.Visible = not mainFrame.Visible
 	end
 end)
 
-print("Auto-Block GUI loaded! Press P to toggle.")
+print("Auto-Block GUI loaded! Press P to toggle. Drag the GUI to move it.")
 print("Block button path: CoreGui.BlockingModalScreen...Buttons.3")
