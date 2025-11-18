@@ -1,4 +1,4 @@
--- EXECUTOR-ONLY SCRIPT - Will NOT work in published games or normal LocalScripts
+-- Efffffffffffffff - Will NOT work in published games or normal LocalScripts
 -- For testing purposes only in private servers with an executor
 
 local Players = game:GetService("Players")
@@ -52,7 +52,7 @@ closeButton.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
 closeButton.BorderSizePixel = 0
 closeButton.Text = "X"
 closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleLabel.TextSize = 16
+closeButton.TextSize = 16
 closeButton.Font = Enum.Font.GothamBold
 closeButton.Parent = mainFrame
 
@@ -80,42 +80,58 @@ listLayout.SortOrder = Enum.SortOrder.Name
 listLayout.Padding = UDim.new(0, 5)
 listLayout.Parent = scrollFrame
 
--- Function to automatically click the block button
+-- Function to automatically click the block button using the correct path
 local function autoClickBlock()
 	task.wait(0.5) -- Wait for CoreGui menu to load
 	
-	-- Try multiple methods to find and click the block button
 	local success = false
 	
-	-- Method 1: Search CoreGui for block button
-	for _, gui in pairs(CoreGui:GetDescendants()) do
-		if gui:IsA("TextButton") then
-			local text = gui.Text:lower()
-			if text:find("block") and not text:find("unblock") then
-				-- Try firesignal
-				pcall(function()
-					firesignal(gui.MouseButton1Click)
-					success = true
-				end)
-				
-				-- Alternative: Try to trigger the activated event
-				if not success then
-					pcall(function()
-						gui.Activated:Fire()
-						success = true
-					end)
-				end
-				
-				if success then
-					print("Successfully auto-blocked player!")
-					break
+	-- Use the exact path you provided
+	local blockButton = CoreGui:FindFirstChild("BlockingModalScreen")
+	if blockButton then
+		blockButton = blockButton:FindFirstChild("BlockingModalContainer")
+		if blockButton then
+			blockButton = blockButton:FindFirstChild("BlockingModalContainerWrapper")
+			if blockButton then
+				blockButton = blockButton:FindFirstChild("BlockingModal")
+				if blockButton then
+					blockButton = blockButton:FindFirstChild("AlertModal")
+					if blockButton then
+						blockButton = blockButton:FindFirstChild("AlertContents")
+						if blockButton then
+							blockButton = blockButton:FindFirstChild("Footer")
+							if blockButton then
+								blockButton = blockButton:FindFirstChild("Buttons")
+								if blockButton then
+									blockButton = blockButton:FindFirstChild("3")
+									if blockButton and blockButton:IsA("GuiButton") then
+										-- Try multiple methods to click
+										pcall(function()
+											firesignal(blockButton.MouseButton1Click)
+											success = true
+											print("Successfully auto-blocked player using firesignal!")
+										end)
+										
+										if not success then
+											pcall(function()
+												blockButton.Activated:Fire()
+												success = true
+												print("Successfully auto-blocked player using Activated!")
+											end)
+										end
+									end
+								end
+							end
+						end
+					end
 				end
 			end
 		end
 	end
 	
 	if not success then
-		warn("Could not find or click block button - executor may not support this")
+		warn("Could not find or click block button at specified path")
+		warn("Path: CoreGui.BlockingModalScreen.BlockingModalContainer.BlockingModalContainerWrapper.BlockingModal.AlertModal.AlertContents.Footer.Buttons.3")
 	end
 end
 
@@ -209,4 +225,5 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
-print("Auto-Block GUI loaded! Press P to toggle. NOTE: Requires executor with firesignal support!")
+print("Auto-Block GUI loaded! Press P to toggle.")
+print("Block button path: CoreGui.BlockingModalScreen...Buttons.3")
